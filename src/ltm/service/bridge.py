@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any, Callable
 
 from ltm.core.models import Message, Query, SleepReport
@@ -41,6 +42,7 @@ class Bridge:
         if blank:
             # 空白记忆体：不预置阶段一那批人名，成员随第一次出现自动登记成 @名字。
             overrides = {**(overrides or {}), "members": []}
+        db_path = _ensure_parent_dir(db_path)
         self.agent = build_agent(db_path, config_path, overrides)
         self.memory = self.agent.memory
         self.cfg = self.agent.cfg
@@ -236,6 +238,13 @@ def _file_size(path: str) -> int:
         return os.path.getsize(path) if path != ":memory:" else 0
     except OSError:
         return 0
+
+
+def _ensure_parent_dir(path: str) -> str:
+    """落盘时先把父目录建出来：宿主给的路径经常是 <DSH_HOME>/ltm/memory.db。"""
+    if path and path != ":memory:":
+        Path(path).expanduser().parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def main(argv: list[str] | None = None) -> None:

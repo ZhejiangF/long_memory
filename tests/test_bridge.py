@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
+from pathlib import Path
 
 from ltm.service.bridge import Bridge
 
@@ -69,6 +71,19 @@ def test_blank_bridge_starts_without_fixture_people() -> None:
     ingested = _call(bridge, "ingest", text="我家猫叫橘子。", speaker="张磊", ts=1_700_000_000)
     assert ingested["result"]["speaker_id"] == "张磊"
     assert _call(bridge, "sleep")["ok"]
+
+
+def test_missing_parent_directory_is_created() -> None:
+    base = Path(".tmp") / "test-bridge-db"
+    target = base / "nested" / "ltm" / "memory.db"
+    shutil.rmtree(base, ignore_errors=True)
+    bridge = Bridge(str(target))
+    try:
+        assert target.exists()
+        assert _call(bridge, "stats")["result"]["messages"] == 0
+    finally:
+        bridge.memory.store.close()
+        shutil.rmtree(base, ignore_errors=True)
 
 
 def test_serve_reads_and_writes_one_json_per_line() -> None:

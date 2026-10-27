@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
@@ -157,8 +158,19 @@ export class MemoryBridge {
 
 function defaultDbPath() {
   if (process.env.DSH_LTM_DB) return process.env.DSH_LTM_DB
-  const home = process.env.DSH_HOME || path.join(process.cwd(), '.dsh')
-  return path.join(home, 'ltm', 'memory.db')
+  return path.join(dshHome(), 'ltm', 'memory.db')
+}
+
+/**
+ * DSH 的 home 目录。宿主不一定会把 DSH_HOME 传进插件进程，
+ * 但会把工作目录设成 `<DSH_HOME>/profiles/<name>`，从那里回推。
+ */
+function dshHome() {
+  if (process.env.DSH_HOME) return process.env.DSH_HOME
+  const parts = process.cwd().split(path.sep)
+  const index = parts.lastIndexOf('profiles')
+  if (index > 0) return parts.slice(0, index).join(path.sep) || path.sep
+  return path.join(os.homedir(), '.dsh')
 }
 
 function defaultPythonPath() {

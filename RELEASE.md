@@ -1,3 +1,9 @@
+# v0.1.1 — DSH 长期记忆插件
+
+修复首次安装后第一次调用就失败的问题：记忆体的父目录（`<DSH_HOME>/ltm/`）以前没人创建，SQLite 会报 `unable to open database file`；现在桥启动时自动建目录。另外，宿主不传 `DSH_HOME` 时，从工作目录 `…/profiles/<name>` 回推 DSH home，记忆体不再落进 profile 目录。
+
+升级：`dsh plugin --profile desktop remove dsh-plugin-ltm` 后重新 `add`，或 npm 版直接 Update。已有记忆体不会被清空。
+
 # v0.1.0 — DSH 长期记忆插件
 
 把仓库里的 ltm 长期记忆引擎接成 DSH 的 cordis 插件：装上之后，模型多出四个记忆工具，记忆体默认是空的、落在 `<DSH_HOME>/ltm/memory.db`。
