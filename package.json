@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-ltm",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "DSH 长期记忆插件：原话进缓冲区、睡眠整理、词语关联召回，提供记忆写入、保存、加载、清空、状态等工具。",
   "type": "module",
   "main": "./dsh-plugin/src/index.js",

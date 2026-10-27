@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 from ltm.components.identity import IdentityBook
+from ltm.components.personality import OWNER, Personality
 from ltm.components.strength import is_pinned
 from ltm.core.markers import BUFFER, FACTS, PERSONA, PROFILE, RECENT, SENTENCES
 from ltm.core.models import Query, RetrievalResult
@@ -19,6 +20,7 @@ class PromptBuilder:
         self.store = store
         self.book = book
         self.cfg = cfg
+        self.personality = Personality(store, cfg)
 
     def build(self, query: Query, retrieved: RetrievalResult) -> tuple[str, int, dict]:
         cap = self.cfg["scale"]["prompt_hard_cap_tokens"]
@@ -32,6 +34,9 @@ class PromptBuilder:
             "给建议时避开相关的过敏和不吃的东西。"
         )
         sections.append(("persona", persona))
+        # 每次整理后 traits 会变；这里只读，把当前性格写进提示词。
+        if self.store.traits_for(OWNER):
+            sections.append(("personality", self.personality.instructions()))
         profile = self._profile(query)
         if profile:
             sections.append(("profile", PROFILE + "\n" + profile))
@@ -84,7 +89,7 @@ class PromptBuilder:
 
 def _fit(sections: list[tuple[str, str]], cap: int) -> tuple[str, dict]:
     """超过上限时，先砍原话，再砍缓冲区，不动事实和档案。"""
-    order = ["sentences", "buffer", "recent", "facts", "profile", "persona"]
+    order = ["sentences", "buffer", "recent", "facts", "profile", "personality", "persona"]
     text_of = {name: text for name, text in sections}
     while _tokens("\n".join(text_of[n] for n, _ in sections if n in text_of)) > cap:
         shrunk = False

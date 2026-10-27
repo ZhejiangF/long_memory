@@ -138,6 +138,7 @@ def _write_report(
     wall_s: float,
     flush_ms: float,
     peanut_rows: list[dict],
+    traits: list[dict],
     hot_max: int,
     buffer_max: int,
     changes: str,
@@ -217,6 +218,13 @@ def _write_report(
             lines.append(f"年末仍有 {len(active)} 条花生相关事实处于 active。")
         else:
             lines.append("年末没有任何花生相关事实处于 active。")
+    lines.extend(["", "## 年末性格", "", "| 特质 | 权重 | 基线 | 锁定 |", "|---|---:|---:|---|"])
+    if not traits:
+        lines.append("| — | — | — | 没有任何特质记录 |")
+    for row in traits:
+        lines.append(
+            f"| {row['key']} | {row['weight']:.3f} | {row['baseline']:.3f} | {'是' if row['locked'] else '否'} |"
+        )
     lines.extend(["", "## 为跑完一年做的改动", "", changes, ""])
     path.write_text("\n".join(lines), encoding="utf-8")
 
@@ -336,6 +344,10 @@ def run(days: int, db_path: Path, daily_path: Path | None, report_path: Path | N
                 "nap_count": agent.memory.nap_count - nap_before,
                 "night_count": agent.memory.night_count - night_before,
                 "wall_s": time.perf_counter() - day_started,
+                "traits": {
+                    row["key"]: round(row["weight"], 4)
+                    for row in agent.memory.store.traits_for("self")
+                },
             }
             daily_rows.append(row)
             if daily_handle is not None:
@@ -353,6 +365,7 @@ def run(days: int, db_path: Path, daily_path: Path | None, report_path: Path | N
         flush = agent.memory.flush()
         wall_s = time.perf_counter() - started
         peanut = _load_peanut(agent.memory.store)
+        traits = agent.memory.store.traits_for("self")
     finally:
         if daily_handle is not None:
             daily_handle.close()
@@ -369,6 +382,7 @@ def run(days: int, db_path: Path, daily_path: Path | None, report_path: Path | N
             wall_s=wall_s,
             flush_ms=float(flush.duration_ms),
             peanut_rows=peanut,
+            traits=traits,
             hot_max=hot_max,
             buffer_max=buffer_max,
             changes=CHANGES,

@@ -342,6 +342,34 @@ class SqliteStore:
             )
         return counts
 
+    def traits_for(self, owner_id: str) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM traits WHERE owner_id=? ORDER BY key", (owner_id,)
+        )
+        return [
+            {
+                "owner_id": row["owner_id"],
+                "key": row["key"],
+                "category": row["category"],
+                "weight": float(row["weight"]),
+                "baseline": float(row["baseline"]),
+                "locked": bool(row["locked"]),
+                "updated_ts": float(row["updated_ts"]),
+            }
+            for row in rows
+        ]
+
+    def upsert_trait(
+        self, owner_id: str, key: str, category: str, weight: float, baseline: float, locked: bool, ts: float
+    ) -> None:
+        self.conn.execute(
+            "INSERT INTO traits(owner_id, key, category, weight, baseline, locked, updated_ts) "
+            "VALUES(?,?,?,?,?,?,?) ON CONFLICT(owner_id, key) DO UPDATE SET "
+            "weight=excluded.weight, category=excluded.category, baseline=excluded.baseline, "
+            "locked=excluded.locked, updated_ts=excluded.updated_ts",
+            (owner_id, key, category, float(weight), float(baseline), 1 if locked else 0, ts),
+        )
+
     def commit(self) -> None:
         self.conn.commit()
 

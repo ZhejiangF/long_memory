@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, time, timedelta, timezone
 
 from ltm.components.facts import SUPERSEDE_SLOTS, RuleExtractor, jaccard
+from ltm.components.personality import Personality
 from ltm.components.prompt import PromptBuilder
 from ltm.components.retrieve import AssociativeRetriever
 from ltm.components.strength import initial_strength, reinforce, retention, should_sleep
@@ -26,6 +27,7 @@ class MemoryService:
         self.extractor = RuleExtractor()
         self.retriever = AssociativeRetriever(store, tokenizer, book, cfg)
         self.prompts = PromptBuilder(store, book, cfg)
+        self.personality = Personality(store, cfg)
         self.nap_count = 0
         self.night_count = 0
 
@@ -82,6 +84,7 @@ class MemoryService:
             return SleepReport("nap", ts, 0.0, {"sentences": 0})
         n_sent = 0
         n_fact = 0
+        accepted: list[dict] = []
         for row in rows:
             words = [w for w in _loads(row["words"]) if w != "#skip"]
             skip = "#skip" in _loads(row["words"])
@@ -96,13 +99,20 @@ class MemoryService:
             for draft in drafts:
                 if self._upsert_fact(draft, row["ts"], turn):
                     n_fact += 1
+                    accepted.append(draft)
             n_sent += 1
+        changed = self.personality.observe(accepted, ts)
         self.store.clear_buffer()
         cooled = self.store.cool_overflow(self.cfg["scale"]["hot_sentence_cap"])
         self.store.commit()
         self.nap_count += 1
         duration = (datetime.now().timestamp() - start) * 1000
-        report = SleepReport("nap", ts, duration, {"sentences": n_sent, "facts": n_fact, "cooled": cooled})
+        report = SleepReport(
+            "nap",
+            ts,
+            duration,
+            {"sentences": n_sent, "facts": n_fact, "cooled": cooled, "traits": changed},
+        )
         emit("sleep.finished", kind="nap")
         return report
 

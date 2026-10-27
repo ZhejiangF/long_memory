@@ -77,6 +77,7 @@ DEFAULTS: dict[str, Any] = {
         "affinity_high": 1.4,
         "learning_rate": 0.03,
         "max_daily_delta": 0.02,
+        "homeostasis": 0.01,
         "weight_bounds": [0.05, 0.95],
     },
     "profile": {"max_items_per_person": 8, "token_budget": 400},
