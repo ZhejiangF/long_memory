@@ -1,0 +1,13 @@
+== 干净设置 ==
+计入成绩的探针 31/31 = 100.0%
+提示词最大 token 估算 4567
+小睡 33 次，夜间整理 33 次
+花生过敏仍有效: True；车辆事实已休眠: True
+分类: single 9/9, safety 3/3, identity 2/2, multi 3/3, assoc 2/2, abstain 2/2, update 4/4, who 4/4, temporal 1/1, forget 2/2, self 1/1
+
+== 加 200 句背景闲聊 ==
+计入成绩的探针 31/31 = 100.0%
+提示词最大 token 估算 4486
+小睡 39 次，夜间整理 33 次
+花生过敏仍有效: True；车辆事实已休眠: True
+分类: single 9/9, safety 3/3, identity 2/2, multi 3/3, assoc 2/2, abstain 2/2, update 4/4, who 4/4, temporal 1/1, forget 2/2, self 1/1

@@ -1,0 +1,12 @@
+# dsh-plugin-ltm 的组合行：dsh plugin add 会把这一层叠进 profile，
+# 由 loader 插入下面这条 entry。字段含义见 package.json 的 dsh.bundle。
+- insert:
+    - id: ltm-memory
+      name: dsh-plugin-ltm
+      config:
+        # 记忆体默认落在 <DSH_HOME>/ltm/memory.db，首次启动是空库；
+        # 要换路径或解释器时在这里加 dbPath / python / pythonPath。
+        # 从空白记忆体重新开始：启动前把这一项临时改成 true，启动一次再改回来。
+        resetOnStart: false
+        # 召回默认返回几条。
+        recallLimit: 8

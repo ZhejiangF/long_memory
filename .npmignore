@@ -1,0 +1,12 @@
+﻿__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.tmp/
+acl-recovery/
+results/
+tests/
+eval/
+examples/
+skills/
+*.md.bak

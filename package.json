@@ -1,0 +1,54 @@
+{
+  "name": "dsh-plugin-ltm",
+  "version": "0.1.0",
+  "description": "DSH 长期记忆插件：原话进缓冲区、睡眠整理、词语关联召回，向模型提供 memory_recall / memory_remember / memory_sleep / memory_status 四个工具。",
+  "type": "module",
+  "main": "./dsh-plugin/src/index.js",
+  "exports": {
+    ".": "./dsh-plugin/src/index.js",
+    "./cordis.patch.yml": "./dsh-plugin/cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dsh-plugin/src",
+    "dsh-plugin/cordis.patch.yml",
+    "dsh-plugin/README.md",
+    "src/ltm/**/*.py",
+    "config/default.yaml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./dsh-plugin/cordis.patch.yml",
+      "listedByDefault": true
+    }
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "memory",
+    "long-term-memory",
+    "agent",
+    "llm"
+  ],
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "prepack": "node scripts/clean-pycache.mjs"
+  },
+  "os": [
+    "win32",
+    "darwin",
+    "linux"
+  ],
+  "author": "ZhejiangF",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZhejiangF/long_memory.git"
+  },
+  "homepage": "https://github.com/ZhejiangF/long_memory#readme",
+  "bugs": {
+    "url": "https://github.com/ZhejiangF/long_memory/issues"
+  }
+}

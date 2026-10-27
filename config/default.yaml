@@ -1,0 +1,2 @@
+# 可选覆盖。不写的项用 src/ltm/core/config.py 里的默认值。
+schema_version: 3

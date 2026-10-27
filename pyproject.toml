@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ltm-memory"
+version = "0.3.1"
+description = "插件式长期记忆：词语关联、事实权重、性格门控与睡眠整理。供任意 AI agent 调用。"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "ltm-memory contributors" }]
+dependencies = [
+  "PyYAML>=6",
+  "jieba>=0.42",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+ltm-chat = "ltm.service.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
