@@ -16,6 +16,7 @@ results/llm_cache/
 acl-recovery/
 .deps/
 mcp/
+video/
 node_modules/
 .pnpm-store/
 npm-debug.log*
