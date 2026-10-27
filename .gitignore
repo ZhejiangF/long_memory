@@ -15,9 +15,10 @@ results/llm_cache/
 .tmp/
 acl-recovery/
 .deps/
+node_modules/
+# 本地媒体流水线和本地 MCP 只留在本机，不进版本库（video/ 300+ MB）
 mcp/
 video/
-node_modules/
 .pnpm-store/
 npm-debug.log*
 .DS_Store
