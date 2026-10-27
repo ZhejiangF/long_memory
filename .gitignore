@@ -14,6 +14,8 @@ results/llm_cache/
 *.db-shm
 .tmp/
 acl-recovery/
+.deps/
+mcp/
 node_modules/
 .pnpm-store/
 npm-debug.log*
