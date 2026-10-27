@@ -3,7 +3,8 @@
 // 做的事：
 //   1. QQ 里每一句收发的消息都进 ltm（同一个 memory.db，和 DSH 的 ltm 工具共用一个记忆库）
 //   2. 每轮说话前，用 ltm 的 recall 把「事实 + 热区原话 + 还没整理进热区的缓冲」拼成一段记忆块，
-//      作为这一轮的第一段内容交给她
+//      再补上「刚才几条消息」——短回复（「八点」「嗯」）没有关键词，检索不出来，
+//      不补就接不上上一句（实测：她问「你猜我几点睡的」，你答「八点」，她却问「八点怎么了」）
 //   3. 每轮开头换一个新的 DSH 会话，所以聊天窗口里没有更早的对话——
 //      她要回忆只能靠上面的记忆块，不靠窗口上下文
 //   4. remember / recall_memory 两个工具改成读写 ltm
@@ -44,7 +45,7 @@ function textOfContent(content) {
 export default {
   id: 'ltm-memory',
   name: 'LTM 长期记忆',
-  version: '0.1.1',
+  version: '0.1.2',
   api: 1,
   description: '用 long_memory（ltm）的记忆体和热区记忆说话：每轮先想起，再回；不靠聊天窗口的上下文',
   defaults: {
@@ -54,6 +55,7 @@ export default {
     napSentences: 12,
     recallLimit: 8,
     factsLimit: 8,
+    recentCount: 6,
     budget: 1800,
     freshWindow: true,
     ingestGroups: true,
@@ -65,6 +67,7 @@ export default {
     { key: 'napSentences', label: '攒几句整理进热区', type: 'number', min: 4, max: 600, step: 1, hint: '越小越快进热区，整理也越频繁' },
     { key: 'recallLimit', label: '每轮想起几条', type: 'number', min: 1, max: 50, step: 1 },
     { key: 'factsLimit', label: '常驻事实几条', type: 'number', min: 0, max: 50, step: 1 },
+    { key: 'recentCount', label: '带上刚才几条消息', type: 'number', min: 0, max: 20, step: 1, hint: '短回复要靠它接上上一句；0 = 不带' },
     { key: 'budget', label: '记忆块字数上限', type: 'number', min: 200, max: 8000, step: 100 },
     { key: 'freshWindow', label: '每轮开新会话', type: 'switch', hint: '打开后聊天窗口里没有更早的对话，只靠记忆块' },
     { key: 'ingestGroups', label: '群里的话也记', type: 'switch' },
@@ -80,6 +83,7 @@ export default {
         napSentences: num(s.napSentences, 12),
         recallLimit: num(s.recallLimit, 8),
         factsLimit: Number(s.factsLimit) >= 0 ? Number(s.factsLimit) : 8,
+        recentCount: Number(s.recentCount) >= 0 ? Number(s.recentCount) : 6,
         budget: num(s.budget, 1800),
         freshWindow: flag(s.freshWindow, true),
         ingestGroups: flag(s.ingestGroups, true),
@@ -193,7 +197,7 @@ export default {
       return [{ type: 'text', text: block }, ...(Array.isArray(content) ? tidy(content) : [])]
     })
 
-    /** 记忆块：常驻事实（记忆体）+ 本轮检索到的事实 / 热区原话 / 未整理缓冲。 */
+    /** 记忆块：常驻事实（记忆体）+ 检索到的内容 + 刚才几条消息。 */
     async function compose(chat, query, senderId) {
       const o = options()
       const asker = senderId ? `qq:${senderId}` : 'self'
@@ -209,28 +213,33 @@ export default {
       } catch (error) {
         api.log.warn(`ltm 检索失败：${error.message}`)
       }
-      if (o.factsLimit > 0) {
+      if (o.factsLimit > 0 || o.recentCount > 0) {
         try {
-          dumped = await ltm().call('dump', { limit: o.factsLimit })
+          // 多要一条：最后那条就是这次刚入库的这句话，渲染时去掉
+          dumped = await ltm().call('dump', {
+            limit: o.factsLimit,
+            session_id: chat.chatId,
+            recent: o.recentCount + 1,
+          })
         } catch (error) {
-          api.log.debug(`ltm 读档案失败：${error.message}`)
+          api.log.debug(`ltm 读库失败：${error.message}`)
         }
       }
       if (!recalled && !dumped) return ''
-      return render(o, recalled, dumped)
+      return render(o, recalled, dumped, query)
     }
 
     /** 把检索结果里的 qq:123 换成昵称、把会话号从原话里去掉，免得她读到一堆编号。 */
     function pretty(text) {
       return String(text || '')
         .replace(/｜(?:private|group|system):[^｜]*｜/g, '｜')
+        .replace(/｜self\]/g, '｜她]')
         .replace(/qq:(\d+)/g, (all, uid) => names.get(uid) || all)
     }
 
-    function render(o, recalled, dumped) {
-      const lines = [
-        '【长期记忆】你脑子里现在只有下面这些。聊天窗口是空的：除了这些和这次的新消息，更早的对话你都不记得，也别假装记得。',
-      ]
+    function render(o, recalled, dumped, query) {
+      const header =
+        '【长期记忆】你脑子里现在只有下面这些。聊天窗口是空的：除了这些和这次的新消息，更早的对话你都不记得，也别假装记得。'
       const seen = new Set()
       const facts = []
       for (const fact of (dumped && dumped.facts) || []) {
@@ -239,6 +248,7 @@ export default {
         seen.add(text)
         facts.push(`- ${pretty(text)}`)
       }
+
       const items = (recalled && recalled.items) || []
       const hitFacts = []
       const words = []
@@ -254,11 +264,42 @@ export default {
           if (line && !words.includes(line)) words.push(line)
         }
       }
-      if (facts.length) lines.push('■ 你记得的事：', ...facts)
-      if (hitFacts.length) lines.push('■ 和这次有关的：', ...hitFacts)
-      if (words.length) lines.push('■ 想起来的原话（标「未整理」的是刚说不久、还没并进热区的）：', ...words)
-      if (!facts.length && !hitFacts.length && !words.length) lines.push('（关于这次，暂时没想起什么）')
-      let out = lines.join('\n')
+
+      // 刚才几条消息：短回复没有关键词，检索不出来，必须整段带上
+      const recent = []
+      const dumpedRecent = (dumped && dumped.recent) || []
+      const list = dumpedRecent.slice()
+      const lastOne = list[list.length - 1]
+      if (lastOne && String(lastOne.text || '').trim() === String(query || '').trim()) list.pop()
+      const shown = words.join('\n')
+      for (const item of list) {
+        const parts = String(item.text || '')
+          .split(/\n+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+        const keep = parts.filter((p) => !shown.includes(p))
+        if (!keep.length) continue
+        const who = item.speaker === 'self' ? '她' : pretty(item.speaker || '谁')
+        recent.push(`- ${who}：${keep.join(' / ')}`)
+      }
+
+      const factBlock = facts.length ? ['■ 你记得的事：', ...facts] : []
+      const hitBlock = hitFacts.length ? ['■ 和这次有关的：', ...hitFacts] : []
+      const wordsHead = '■ 想起来的原话（标「未整理」的是刚说不久、还没并进热区的）：'
+      const recentBlock = recent.length ? ['■ 刚才的对话：', ...recent] : []
+
+      // 超预算时先砍「想起来的原话」，事实和刚才的对话留着
+      let keep = words.length
+      let out = ''
+      for (;;) {
+        const mid = keep > 0 ? [wordsHead, ...words.slice(0, keep)] : []
+        out = [header, ...factBlock, ...hitBlock, ...mid, ...recentBlock].join('\n')
+        if (out.length <= o.budget || keep === 0) break
+        keep -= 1
+      }
+      if (!factBlock.length && !hitBlock.length && !words.length) {
+        out = [header, '（关于这次，暂时没想起什么）', ...recentBlock].join('\n')
+      }
       if (out.length > o.budget) out = `${out.slice(0, o.budget)}\n（记忆太多，后面的截掉了）`
       return out
     }
@@ -312,7 +353,8 @@ export default {
     // ---- 4. 规则：告诉她窗口里没有旧对话 ----
     api.rule(() =>
       '你的长期记忆在每轮开头给你的【长期记忆】里，聊天窗口里没有更早的对话。' +
-        '记忆里没有的事就是不知道，直接问对方，不要猜，也不要说「你之前说过」除非记忆里有。',
+        '「刚才的对话」那几行是紧挨着这次的上下文，接话要接得上；再往前的事，记忆里没有就是不知道，' +
+        '直接问对方，不要猜，也不要说「你之前说过」除非记忆里有。',
     )
 
     // ---- 5. 面板/排查用 ----

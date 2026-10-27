@@ -191,8 +191,14 @@ class Bridge:
         return {"cleared": cleared, "stats": self._stats({})}
 
     def _dump(self, params: dict) -> dict:
-        """加载记忆体：活跃事实 + 最近原话，给“加载记忆”按钮用。"""
+        """加载记忆体：活跃事实 + 最近原话 + 最近几条消息。
+
+        `recent` 是给「不看聊天窗口」的宿主用的：检索是按关键词走的，短回复
+        （「八点」「嗯」）没有关键词就找不到上一句是什么，只能靠最近这几条把
+        刚才聊到哪儿接上。传 `session_id` 就只取这个会话的。
+        """
         limit = _limit(params.get("limit"), 50)
+        session = str(params.get("session_id") or "").strip()
         conn = self.memory.store.conn
         facts = [
             {
@@ -216,7 +222,30 @@ class Bridge:
                 "SELECT * FROM sentences ORDER BY ts DESC LIMIT ?", (limit,)
             )
         ]
-        return {"facts": facts, "sentences": sentences, "stats": self._stats({})}
+        recent_limit = _limit(params.get("recent"), 8)
+        if session:
+            rows = list(
+                conn.execute(
+                    "SELECT * FROM messages WHERE session_id=? ORDER BY msg_id DESC LIMIT ?",
+                    (session, recent_limit),
+                )
+            )
+        else:
+            rows = list(
+                conn.execute(
+                    "SELECT * FROM messages ORDER BY msg_id DESC LIMIT ?", (recent_limit,)
+                )
+            )
+        rows.reverse()  # 改成从早到晚，读起来才顺
+        recent = [
+            {
+                "text": row["text"],
+                "speaker": self.memory.book.name_of(row["speaker_id"]),
+                "ts": float(row["ts"]),
+            }
+            for row in rows
+        ]
+        return {"facts": facts, "sentences": sentences, "recent": recent, "stats": self._stats({})}
 
     # ---- 参数翻译 ----
     def _speaker(self, raw: Any) -> str:

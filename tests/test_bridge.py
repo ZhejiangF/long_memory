@@ -94,6 +94,17 @@ def test_dump_lists_facts_and_sentences() -> None:
     assert data["facts"][0]["owner"] == "张磊"
     assert data["sentences"]
     assert "橘子" in data["sentences"][0]["text"]
+    # 最近几条消息：给「不看窗口」的宿主接上下文用，从早到晚
+    assert data["recent"]
+    assert data["recent"][-1]["text"] == "我家猫叫橘子。"
+
+
+def test_dump_recent_can_be_limited_to_one_session() -> None:
+    bridge = Bridge(":memory:")
+    _call(bridge, "ingest", text="群里的闲聊", speaker="张磊", session_id="群A", ts=1_700_000_000)
+    _call(bridge, "ingest", text="私聊里的一句话", speaker="张磊", session_id="私聊B", ts=1_700_000_060)
+    data = _call(bridge, "dump", session_id="私聊B", recent=5)["result"]
+    assert [row["text"] for row in data["recent"]] == ["私聊里的一句话"]
 
 
 def test_dump_is_empty_on_blank_memory() -> None:
@@ -101,6 +112,7 @@ def test_dump_is_empty_on_blank_memory() -> None:
     data = _call(bridge, "dump")["result"]
     assert data["facts"] == []
     assert data["sentences"] == []
+    assert data["recent"] == []
 
 
 def test_missing_parent_directory_is_created() -> None:
