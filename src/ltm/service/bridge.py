@@ -99,6 +99,7 @@ class Bridge:
             "sleep": self._sleep,
             "stats": self._stats,
             "reset": self._reset,
+            "dump": self._dump,
         }
 
     def _ping(self, params: dict) -> dict:
@@ -181,6 +182,34 @@ class Bridge:
     def _reset(self, params: dict) -> dict:
         cleared = self.memory.store.reset_memories()
         return {"cleared": cleared, "stats": self._stats({})}
+
+    def _dump(self, params: dict) -> dict:
+        """加载记忆体：活跃事实 + 最近原话，给“加载记忆”按钮用。"""
+        limit = _limit(params.get("limit"), 50)
+        conn = self.memory.store.conn
+        facts = [
+            {
+                "text": row["text"],
+                "owner": self.memory.book.name_of(row["owner_id"]),
+                "importance": int(row["importance"]),
+                "strength": round(float(row["strength"]), 2),
+            }
+            for row in conn.execute(
+                "SELECT * FROM facts WHERE status='active' ORDER BY strength DESC, importance DESC LIMIT ?",
+                (limit,),
+            )
+        ]
+        sentences = [
+            {
+                "text": row["text"],
+                "speaker": self.memory.book.name_of(row["speaker_id"]),
+                "ts": float(row["ts"]),
+            }
+            for row in conn.execute(
+                "SELECT * FROM sentences ORDER BY ts DESC LIMIT ?", (limit,)
+            )
+        ]
+        return {"facts": facts, "sentences": sentences, "stats": self._stats({})}
 
     # ---- 参数翻译 ----
     def _speaker(self, raw: Any) -> str:

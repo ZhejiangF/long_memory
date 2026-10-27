@@ -2,7 +2,7 @@
 
 DSH 的长期记忆插件。原话先进缓冲区，攒够一批像睡眠一样整理；用词语关联找回原话，用事实权重和性格门控决定留在长期记忆里的内容。
 
-插件只做协议翻译：四个模型可见工具经一行一个 JSON 的 stdio 桥，调用包内 `src/ltm` 的同一套记忆规则。**没有第三方 Python 依赖**——`PyYAML` 只在读自定义 YAML 配置时才需要，`jieba` 缺失时自动退回词表切分。
+插件只做协议翻译：七个模型可见工具经一行一个 JSON 的 stdio 桥，调用包内 `src/ltm` 的同一套记忆规则。**没有第三方 Python 依赖**——`PyYAML` 只在读自定义 YAML 配置时才需要，`jieba` 缺失时自动退回词表切分。
 
 ## 包结构
 
@@ -13,7 +13,7 @@ DSH 的长期记忆插件。原话先进缓冲区，攒够一批像睡眠一样�
 | `package.json` | `dsh.bundle.patch` 指向补丁；`main` 指向 `dsh-plugin/src/index.js`；`files` 带上 `src/ltm` |
 | `dsh-plugin/cordis.patch.yml` | bundle 补丁：一条 `insert`，把 `ltm-memory` 行插进组合树 |
 | `dsh-plugin/src/index.js` | cordis 插件入口：`name` / `inject: ['tools']` / `apply(ctx, config)` |
-| `dsh-plugin/src/tools.js` | 四个 `ToolDefinition`，`parameters` 与 `output.schema` 都是 JSON Schema |
+| `dsh-plugin/src/tools.js` | 七个 `ToolDefinition`，`parameters` 与 `output.schema` 都是 JSON Schema |
 | `dsh-plugin/src/bridge.js` | 长驻 `python -m ltm.service.bridge`，按行收发 JSON；自动挑 `python`/`python3` |
 | `src/ltm` | 记忆引擎本体（随包分发，不重复实现） |
 
@@ -54,9 +54,14 @@ python: 'C:/path/to/python.exe'
 | `memory_recall` | 回答涉及过去的人、事、约定、偏好之前 | 命中的原话与事实；没有就明说没有 |
 | `memory_remember` | 用户提到自己的事、约定、偏好、计划 | 已记下，缓冲区剩几句 |
 | `memory_sleep` | 用户说“记住这些”，或会话结束前 | 这次整理出的句子、事实数与耗时 |
+| `memory_save` | 用户说“保存记忆”“先存一下” | 已保存，句子/事实数与耗时 |
+| `memory_load` | 用户问“你都记得什么”“把记忆读出来” | 活跃事实 + 最近原话 |
+| `memory_reset` | 用户明确要求“清空记忆”，必须 `confirm=true` | 清掉的消息/句子/事实条数 |
 | `memory_status` | 想知道记忆体现状 | 消息/句子/事实/缓冲区条数与文件位置 |
 
 写入走缓冲区，攒够一批才整理；`memory_status` 里的 `buffer` 就是还没整理的原话条数。
+
+**自动整理**：每写入 `consolidateEvery` 次原话（默认 10 次）会自动整理一次并落库，不依赖定时器；`memory_save` 可以随时手动整理。原计划的「每天九点定时保存」没有实现，也不需要——按次数整理在空闲时就能完成。
 
 ## 配置项
 
@@ -73,6 +78,8 @@ python: 'C:/path/to/python.exe'
 | `sessionId` | `dsh` | 工具写入时的会话 id |
 | `speaker` | `user` | 没指定说话人时的默认值 |
 | `recallLimit` | `8` | 召回默认条数，上限 50 |
+| `loadLimit` | `50` | `memory_load` 事实与原话各取几条，上限 50 |
+| `consolidateEvery` | `10` | 每写入几次原话自动整理一次；`0` 表示关闭 |
 | `timeoutMs` | `30000` | 单次桥调用超时 |
 
 ## 空白记忆体

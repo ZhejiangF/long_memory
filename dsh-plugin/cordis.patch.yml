@@ -10,3 +10,5 @@
         resetOnStart: false
         # 召回默认返回几条。
         recallLimit: 8
+        # 每写几次原话自动整理一次（0 表示关闭）。取代“每天九点定时保存”。
+        consolidateEvery: 10

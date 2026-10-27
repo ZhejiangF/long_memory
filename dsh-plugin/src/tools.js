@@ -22,6 +22,9 @@ export function createTools({ bridge, config = {} }) {
   const sessionId = config.sessionId ?? 'dsh'
   const speaker = config.speaker ?? 'user'
   const recallLimit = config.recallLimit ?? 8
+  const consolidateEvery = Number(config.consolidateEvery ?? 10)
+  const loadLimit = Number(config.loadLimit ?? 50)
+  let remembersSinceSave = 0
 
   const recall = {
     name: 'memory_recall',
@@ -82,7 +85,16 @@ export function createTools({ bridge, config = {} }) {
         },
         exec?.signal,
       )
-      return { text: renderRemember(result), count: result.buffered }
+      let text = renderRemember(result)
+      if (consolidateEvery > 0) {
+        remembersSinceSave += 1
+        if (remembersSinceSave >= consolidateEvery) {
+          const report = await bridge.call('sleep', { ts: nowSeconds() }, exec?.signal)
+          remembersSinceSave = 0
+          text += `\n${renderSleep(report)}（每 ${consolidateEvery} 次写入自动整理）`
+        }
+      }
+      return { text, count: result.buffered }
     },
   }
 
@@ -118,7 +130,69 @@ export function createTools({ bridge, config = {} }) {
     },
   }
 
-  return [recall, remember, sleep, status]
+  const save = {
+    name: 'memory_save',
+    description:
+      '保存当前记忆：把缓冲区里攒着的原话立刻整理并写进记忆体。用户说“保存记忆”“记住这些”“先存一下”时调用。',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+    },
+    output: textOutput(),
+    timeoutMs: 20_000,
+    async execute(_args, exec) {
+      const report = await bridge.call('sleep', { ts: nowSeconds() }, exec?.signal)
+      remembersSinceSave = 0
+      return { text: `已保存。${renderSleep(report)}`, count: Number(report.stage_stats?.sentences ?? 0) }
+    },
+  }
+
+  const load = {
+    name: 'memory_load',
+    description:
+      '加载记忆体：列出当前记住的事实和最近的对话原话。用户问“你都记得什么”“把记忆读出来”时调用。',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        limit: { type: 'integer', description: `事实和原话各取几条，默认 ${loadLimit}，上限 50。` },
+      },
+    },
+    output: textOutput(),
+    timeoutMs: 20_000,
+    async execute(args, exec) {
+      const data = await bridge.call('dump', { limit: args.limit ?? loadLimit }, exec?.signal)
+      const count = (data.facts?.length ?? 0) + (data.sentences?.length ?? 0)
+      return { text: renderLoad(data), count }
+    },
+  }
+
+  const reset = {
+    name: 'memory_reset',
+    description:
+      '清空当前记忆体：删除所有消息、句子、事实和词表，保留数据库文件与配置。用户明确要求“清空记忆”“忘掉一切”时才调用，必须带 confirm=true。',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        confirm: { type: 'boolean', description: '确认清空，必须是 true。' },
+      },
+      required: ['confirm'],
+    },
+    output: textOutput(),
+    timeoutMs: 20_000,
+    async execute(args, exec) {
+      if (args.confirm !== true) {
+        return { text: '未清空：需要 confirm=true 才会执行。', count: 0 }
+      }
+      const result = await bridge.call('reset', {}, exec?.signal)
+      remembersSinceSave = 0
+      return { text: renderReset(result), count: Number(result.cleared?.messages ?? 0) }
+    },
+  }
+
+  return [recall, remember, sleep, save, load, reset, status]
 }
 
 function renderRecall(result) {
@@ -148,6 +222,31 @@ function renderStatus(stats) {
     `消息 ${stats.messages}，句子 ${stats.sentences}，缓冲区 ${stats.buffer}`,
     `事实：活跃 ${stats.facts_active}，休眠 ${stats.facts_dormant}；词表 ${stats.vocab}`,
   ].join('\n')
+}
+
+function renderLoad(data) {
+  const facts = data?.facts ?? []
+  const sentences = data?.sentences ?? []
+  if (!facts.length && !sentences.length) return '记忆体是空的。'
+  const lines = []
+  if (facts.length) {
+    lines.push(`事实 ${facts.length} 条：`)
+    facts.forEach((fact, index) => {
+      lines.push(`${index + 1}. ${fact.owner}｜${fact.text}（重要度 ${fact.importance}）`)
+    })
+  }
+  if (sentences.length) {
+    lines.push(`最近原话 ${sentences.length} 条：`)
+    for (const sentence of sentences.slice(0, 10)) {
+      lines.push(`- ${sentence.speaker}：${sentence.text}`)
+    }
+  }
+  return lines.join('\n')
+}
+
+function renderReset(result) {
+  const cleared = result?.cleared ?? {}
+  return `已清空记忆体：消息 ${cleared.messages ?? 0}，句子 ${cleared.sentences ?? 0}，事实 ${cleared.facts ?? 0}。`
 }
 
 function formatBytes(value) {

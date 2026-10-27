@@ -38,9 +38,22 @@ try {
   const status = await byName('memory_status').execute({}, {})
   assert.match(status.text, /消息 1/)
 
+  const loaded = await byName('memory_load').execute({}, {})
+  assert.match(loaded.text, /橘子/)
+
+  const saved = await byName('memory_save').execute({}, {})
+  assert.match(saved.text, /已保存/)
+
+  const cleared = await byName('memory_reset').execute({ confirm: true }, {})
+  assert.match(cleared.text, /已清空记忆体/)
+
+  const afterReset = await byName('memory_status').execute({}, {})
+  assert.match(afterReset.text, /消息 0/)
+
   console.log('E2E OK')
   console.log(status.text.replace(/\n/g, ' | '))
-  console.log(recalled.text.replace(/\n/g, ' | '))
+  console.log(loaded.text.replace(/\n/g, ' | '))
+  console.log(cleared.text)
 } finally {
   bridge.close()
   await new Promise((resolve) => setTimeout(resolve, 300))

@@ -21,7 +21,7 @@ test('插件导出 cordis 插件需要的三个成员', () => {
   assert.equal(typeof apply, 'function')
 })
 
-test('apply 注册四个记忆工具，并在卸载时回收桥', () => {
+test('apply 注册七个记忆工具，并在卸载时回收桥', () => {
   const registered = []
   const disposers = []
   const ctx = {
@@ -33,7 +33,15 @@ test('apply 注册四个记忆工具，并在卸载时回收桥', () => {
   apply(ctx, {})
   assert.deepEqual(
     registered.map((tool) => tool.name).sort(),
-    ['memory_recall', 'memory_remember', 'memory_sleep', 'memory_status'],
+    [
+      'memory_load',
+      'memory_recall',
+      'memory_remember',
+      'memory_reset',
+      'memory_save',
+      'memory_sleep',
+      'memory_status',
+    ],
   )
   for (const tool of registered) {
     assert.equal(typeof tool.description, 'string')
@@ -96,4 +104,66 @@ test('memory_sleep 和 memory_status 渲染引擎回报的数字', async () => {
   const stats = await status.execute({}, {})
   assert.match(stats.text, /消息 9/)
   assert.match(stats.text, /2\.0KB/)
+})
+
+test('memory_save 明确回报“已保存”', async () => {
+  const bridge = fakeBridge({
+    sleep: { kind: 'nap', duration_ms: 5, stage_stats: { sentences: 2, facts: 1 } },
+  })
+  const save = createTools({ bridge, config: {} }).find((tool) => tool.name === 'memory_save')
+  const value = await save.execute({}, {})
+  assert.match(value.text, /^已保存。/)
+  assert.equal(value.count, 2)
+  assert.equal(bridge.calls[0].op, 'sleep')
+})
+
+test('memory_load 渲染事实与最近原话', async () => {
+  const bridge = fakeBridge({
+    dump: {
+      facts: [{ owner: '张磊', text: '张磊家猫叫橘子', importance: 7 }],
+      sentences: [{ speaker: '张磊', text: '我家猫叫橘子。', ts: 1 }],
+      stats: {},
+    },
+  })
+  const load = createTools({ bridge, config: {} }).find((tool) => tool.name === 'memory_load')
+  const value = await load.execute({}, {})
+  assert.equal(value.count, 2)
+  assert.match(value.text, /事实 1 条/)
+  assert.match(value.text, /橘子/)
+})
+
+test('memory_load 在空记忆体时如实说空', async () => {
+  const bridge = fakeBridge({ dump: { facts: [], sentences: [] } })
+  const load = createTools({ bridge, config: {} }).find((tool) => tool.name === 'memory_load')
+  const value = await load.execute({}, {})
+  assert.equal(value.text, '记忆体是空的。')
+})
+
+test('memory_reset 必须带 confirm=true', async () => {
+  const bridge = fakeBridge({ reset: { cleared: { messages: 3, sentences: 2, facts: 1 } } })
+  const reset = createTools({ bridge, config: {} }).find((tool) => tool.name === 'memory_reset')
+
+  const refused = await reset.execute({ confirm: false }, {})
+  assert.match(refused.text, /未清空/)
+  assert.equal(bridge.calls.length, 0, '没确认时不应该调用引擎')
+
+  const cleared = await reset.execute({ confirm: true }, {})
+  assert.match(cleared.text, /已清空记忆体：消息 3，句子 2，事实 1/)
+  assert.equal(bridge.calls[0].op, 'reset')
+})
+
+test('每 N 次写入自动整理一次', async () => {
+  const bridge = fakeBridge({
+    ingest: { speaker_id: 'user', buffered: 1, sleep: [] },
+    sleep: { kind: 'nap', duration_ms: 1, stage_stats: { sentences: 2, facts: 0 } },
+  })
+  const tools = createTools({ bridge, config: { consolidateEvery: 2 } })
+  const remember = tools.find((tool) => tool.name === 'memory_remember')
+
+  await remember.execute({ text: '第一句' }, {})
+  assert.equal(bridge.calls.filter((call) => call.op === 'sleep').length, 0)
+
+  const value = await remember.execute({ text: '第二句' }, {})
+  assert.equal(bridge.calls.filter((call) => call.op === 'sleep').length, 1)
+  assert.match(value.text, /自动整理/)
 })

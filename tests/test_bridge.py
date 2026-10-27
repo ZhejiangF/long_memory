@@ -73,6 +73,24 @@ def test_blank_bridge_starts_without_fixture_people() -> None:
     assert _call(bridge, "sleep")["ok"]
 
 
+def test_dump_lists_facts_and_sentences() -> None:
+    bridge = Bridge(":memory:")
+    _call(bridge, "ingest", text="我家猫叫橘子。", speaker="张磊", ts=1_700_000_000)
+    _call(bridge, "sleep")
+    data = _call(bridge, "dump")["result"]
+    assert data["facts"]
+    assert data["facts"][0]["owner"] == "张磊"
+    assert data["sentences"]
+    assert "橘子" in data["sentences"][0]["text"]
+
+
+def test_dump_is_empty_on_blank_memory() -> None:
+    bridge = Bridge(":memory:")
+    data = _call(bridge, "dump")["result"]
+    assert data["facts"] == []
+    assert data["sentences"] == []
+
+
 def test_missing_parent_directory_is_created() -> None:
     base = Path(".tmp") / "test-bridge-db"
     target = base / "nested" / "ltm" / "memory.db"
