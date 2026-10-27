@@ -95,6 +95,21 @@ node dsh-plugin/test/e2e.mjs               # Node → python 引擎，端到端
 
 `e2e.mjs` 要拉起子进程并读管道；受限沙箱里会报 `spawn EPERM`，需要在正常权限下运行。
 
+## 发版
+
+推 `v*` 标签会由 `.github/workflows/release.yml` 自动创建 GitHub Release：正文取 `RELEASE.md` 里对应版本的那一段，附件是 `npm pack` 出来的 `.tgz`（可离线安装）。
+
+```bash
+git tag -a v0.1.2 -m "v0.1.2: 一句话说明"
+git push origin v0.1.2
+```
+
+安装指定版本：
+
+```bash
+dsh plugin --profile web add "git+https://github.com/ZhejiangF/long_memory.git#v0.1.2"
+```
+
 ## 限制
 
 - 宿主进程必须能跑 Python 3.10+；插件不内嵌解释器。

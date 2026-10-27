@@ -1,0 +1,51 @@
+name: Release
+
+# 推 v* 标签即自动发布 GitHub Release：
+# - 正文取 RELEASE.md 里对应版本的那一段（找不到就整篇）
+# - 同时把 npm pack 出来的 .tgz 作为附件上传，可离线安装
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 提取当前版本的说明
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          awk -v tag="$tag" 'BEGIN{found=0} /^# v/ { if (found) exit; if (index($0, tag)) found=1 } found{print}' RELEASE.md > notes.md
+          if [ ! -s notes.md ]; then cp RELEASE.md notes.md; fi
+          echo "--- notes.md ---"
+          cat notes.md
+
+      - name: 打包插件
+        run: |
+          set -euo pipefail
+          npm pack --pack-destination dist
+
+      - name: 创建或更新 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "$tag" --notes-file notes.md
+          else
+            gh release create "$tag" --title "$tag" --notes-file notes.md --verify-tag
+          fi
+          gh release upload "$tag" dist/*.tgz --clobber
