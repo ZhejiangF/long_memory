@@ -35,7 +35,9 @@ jobs:
       - name: 打包插件
         run: |
           set -euo pipefail
+          mkdir -p dist
           npm pack --pack-destination dist
+          ls -l dist
 
       - name: 创建或更新 Release
         env:
