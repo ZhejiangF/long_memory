@@ -20,6 +20,8 @@ export class MemoryBridge {
     this.configPath = config.configPath ?? null
     this.resetOnStart = config.resetOnStart === true
     this.blank = config.blank !== false
+    this.napSentences = config.napSentences ?? null
+    this.nightHour = config.nightHour ?? null
     this.timeoutMs = config.timeoutMs ?? 30_000
     this.child = null
     this.pending = new Map()
@@ -90,6 +92,8 @@ export class MemoryBridge {
     if (this.configPath) args.push('--config', this.configPath)
     if (this.resetOnStart) args.push('--reset')
     if (this.blank) args.push('--blank')
+    if (this.napSentences != null) args.push('--nap-sentences', String(this.napSentences))
+    if (this.nightHour != null) args.push('--night-hour', String(this.nightHour))
     const env = { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
     if (this.pythonPath) {
       env.PYTHONPATH = [this.pythonPath, env.PYTHONPATH].filter(Boolean).join(path.delimiter)

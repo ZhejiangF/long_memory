@@ -80,7 +80,28 @@ python: 'C:/path/to/python.exe'
 | `recallLimit` | `8` | 召回默认条数，上限 50 |
 | `loadLimit` | `50` | `memory_load` 事实与原话各取几条，上限 50 |
 | `consolidateEvery` | `10` | 每写入几次原话自动整理一次；`0` 表示关闭 |
+| `napSentences` | `600` | 缓冲区攒到几句就「小睡」（批量整理）。日常聊天建议 20–60，或用 `consolidateEvery` |
+| `nightHour` | `3` | 夜间整理的时刻（0–23）。按消息时间戳跨过该时刻补做，不是定时器 |
 | `timeoutMs` | `30000` | 单次桥调用超时 |
+
+## 小睡与夜间整理
+
+「小睡」不是休眠，是**批量整理**：把缓冲区里攒着的原话一次性整理成句子、词语关联和事实。
+
+- **小睡**：缓冲区达到 `napSentences`（默认 600 句），或手动 `memory_save` / `memory_sleep` 时触发。
+- **夜间整理**：每条消息进来时比较前后两条消息的时间戳；跨过了 `nightHour`（默认 3 点）就对每个跨过的夜晚补做一次——先强制小睡，再按强度、重要度、留存率把该忘的事实标成 `dormant`（不删除）。
+- 它**不是定时器**：夜里没人说话不会发生任何事，第二天第一条消息进来时补做；连续几天没说话会一次补做多个夜晚。
+- 整理耗时记在 `sleep_ms`，不算进回复耗时。
+
+调到日常节奏（整段替换 `ltm-memory` 的 config）：
+
+```yaml
+- id: ltm-memory
+  config:
+    consolidateEvery: 10
+    napSentences: 40
+    nightHour: 3
+```
 
 ## 空白记忆体
 

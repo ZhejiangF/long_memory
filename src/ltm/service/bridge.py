@@ -38,12 +38,19 @@ class Bridge:
         config_path: str | None = None,
         overrides: dict | None = None,
         blank: bool = False,
+        nap_sentences: int | None = None,
+        night_hour: int | None = None,
     ) -> None:
+        merged: dict = {k: (dict(v) if isinstance(v, dict) else v) for k, v in (overrides or {}).items()}
         if blank:
             # 空白记忆体：不预置阶段一那批人名，成员随第一次出现自动登记成 @名字。
-            overrides = {**(overrides or {}), "members": []}
+            merged["members"] = []
+        if nap_sentences is not None:
+            merged.setdefault("buffer", {})["nap_sentences"] = int(nap_sentences)
+        if night_hour is not None:
+            merged.setdefault("sleep", {})["night_hour"] = int(night_hour)
         db_path = _ensure_parent_dir(db_path)
-        self.agent = build_agent(db_path, config_path, overrides)
+        self.agent = build_agent(db_path, config_path, merged or None)
         self.memory = self.agent.memory
         self.cfg = self.agent.cfg
         self.db_path = db_path
@@ -282,13 +289,21 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--config", default=None, help="覆盖用的 YAML 配置")
     parser.add_argument("--reset", action="store_true", help="启动时先清空库里的旧记忆体")
     parser.add_argument("--blank", action="store_true", help="空白记忆体：不预置任何人名")
+    parser.add_argument("--nap-sentences", type=int, default=None, help="缓冲区攒到几句就小睡，默认 600")
+    parser.add_argument("--night-hour", type=int, default=None, help="夜间整理的时刻（0-23），默认 3")
     args = parser.parse_args(argv)
     for stream in (sys.stdin, sys.stdout):
         try:
             stream.reconfigure(encoding="utf-8")
         except (AttributeError, ValueError):
             pass
-    bridge = Bridge(args.db, args.config, blank=args.blank)
+    bridge = Bridge(
+        args.db,
+        args.config,
+        blank=args.blank,
+        nap_sentences=args.nap_sentences,
+        night_hour=args.night_hour,
+    )
     if args.reset:
         bridge.memory.store.reset_memories()
     bridge.serve()

@@ -73,6 +73,18 @@ def test_blank_bridge_starts_without_fixture_people() -> None:
     assert _call(bridge, "sleep")["ok"]
 
 
+def test_nap_and_night_settings_are_overridable() -> None:
+    bridge = Bridge(":memory:", nap_sentences=5, night_hour=2)
+    assert bridge.cfg["buffer"]["nap_sentences"] == 5
+    assert bridge.cfg["sleep"]["night_hour"] == 2
+
+
+def test_nap_override_keeps_other_buffer_settings() -> None:
+    bridge = Bridge(":memory:", overrides={"buffer": {"max_sentences": 9}}, nap_sentences=5)
+    assert bridge.cfg["buffer"]["max_sentences"] == 9
+    assert bridge.cfg["buffer"]["nap_sentences"] == 5
+
+
 def test_dump_lists_facts_and_sentences() -> None:
     bridge = Bridge(":memory:")
     _call(bridge, "ingest", text="我家猫叫橘子。", speaker="张磊", ts=1_700_000_000)
