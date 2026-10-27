@@ -79,6 +79,9 @@ class SqliteStore:
         self.conn = sqlite3.connect(path)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
+        # 同一个库可能被多个进程同时打开（DSH 插件和 Aurabot 各自的桥）。
+        # 不设 busy_timeout 时并发写会直接抛 "database is locked"，这里让它排队等一会儿。
+        self.conn.execute("PRAGMA busy_timeout=5000")
         self.conn.executescript(SCHEMA)
         self.conn.execute(
             "INSERT INTO schema_meta(key, value) VALUES('version', '1') "
