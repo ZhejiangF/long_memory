@@ -118,10 +118,19 @@ class Bridge:
             raise BridgeError("BAD_REQUEST", "text 不能为空")
         ts = _ts(params.get("ts"), self.memory.clock.now())
         speaker = self._speaker(params.get("speaker"))
+        session_id = str(params.get("session_id") or self.cfg["identity"]["session_id"])
+        if self._is_duplicate(session_id, text, ts):
+            # 自动抓取和 memory_remember 可能对同一句话各写一次，这里挡掉。
+            return {
+                "speaker_id": speaker,
+                "buffered": self.memory.store.buffer_count(),
+                "sleep": [],
+                "skipped": "duplicate",
+            }
         asleep = [_report(report) for report in self.memory.advance_time(ts)]
         message = Message(
             ts=ts,
-            session_id=str(params.get("session_id") or self.cfg["identity"]["session_id"]),
+            session_id=session_id,
             speaker_id=speaker,
             text=text,
             addressee_ids=tuple(params.get("addressee_ids") or ()),
@@ -131,6 +140,15 @@ class Bridge:
         if nap is not None:
             asleep.append(_report(nap))
         return {"speaker_id": speaker, "buffered": self.memory.store.buffer_count(), "sleep": asleep}
+
+    def _is_duplicate(self, session_id: str, text: str, ts: float) -> bool:
+        row = self.memory.store.conn.execute(
+            "SELECT text, ts FROM messages WHERE session_id=? ORDER BY msg_id DESC LIMIT 1",
+            (session_id,),
+        ).fetchone()
+        if row is None:
+            return False
+        return row["text"] == text and abs(ts - float(row["ts"])) < 120
 
     def _recall(self, params: dict) -> dict:
         text = str(params.get("query") or "").strip()

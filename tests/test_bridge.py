@@ -73,6 +73,22 @@ def test_blank_bridge_starts_without_fixture_people() -> None:
     assert _call(bridge, "sleep")["ok"]
 
 
+def test_duplicate_text_is_skipped() -> None:
+    bridge = Bridge(":memory:")
+    first = _call(bridge, "ingest", text="你好", ts=1_700_000_000)
+    second = _call(bridge, "ingest", text="你好", ts=1_700_000_060)
+    assert first["result"].get("skipped") is None
+    assert second["result"]["skipped"] == "duplicate"
+    assert second["result"]["buffered"] == first["result"]["buffered"]
+
+
+def test_same_text_after_two_minutes_is_recorded() -> None:
+    bridge = Bridge(":memory:")
+    _call(bridge, "ingest", text="你好", ts=1_700_000_000)
+    again = _call(bridge, "ingest", text="你好", ts=1_700_000_200)
+    assert again["result"].get("skipped") is None
+
+
 def test_nap_and_night_settings_are_overridable() -> None:
     bridge = Bridge(":memory:", nap_sentences=5, night_hour=2)
     assert bridge.cfg["buffer"]["nap_sentences"] == 5

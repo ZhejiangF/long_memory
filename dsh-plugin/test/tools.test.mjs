@@ -21,12 +21,16 @@ test('插件导出 cordis 插件需要的三个成员', () => {
   assert.equal(typeof apply, 'function')
 })
 
-test('apply 注册七个记忆工具，并在卸载时回收桥', () => {
+test('apply 注册七个记忆工具，并监听会话事件', () => {
   const registered = []
   const disposers = []
+  const listeners = []
   const ctx = {
     effect(fn) {
       disposers.push(fn())
+    },
+    on(name, callback) {
+      listeners.push({ name, callback })
     },
     tools: { register(tool) { registered.push(tool) } },
   }
@@ -43,6 +47,8 @@ test('apply 注册七个记忆工具，并在卸载时回收桥', () => {
       'memory_status',
     ],
   )
+  assert.deepEqual(listeners.map((item) => item.name), ['session/event'])
+  assert.equal(typeof listeners[0].callback, 'function')
   for (const tool of registered) {
     assert.equal(typeof tool.description, 'string')
     assert.equal(tool.parameters.type, 'object')

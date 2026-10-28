@@ -4,6 +4,10 @@
     - id: ltm-memory
       name: dsh-plugin-ltm
       config:
+        # 自动记住每条真人发言与助手回复（和 Python 库一致）；设为 false 只保留手动工具。
+        autoCapture: true
+        # 助手回复也记；只记用户就设 false。
+        captureAssistant: true
         # 记忆体默认落在 <DSH_HOME>/ltm/memory.db，首次启动是空库；
         # 要换路径或解释器时在这里加 dbPath / python / pythonPath。
         # 从空白记忆体重新开始：启动前把这一项临时改成 true，启动一次再改回来。
