@@ -69,17 +69,6 @@ cp -r integrations/aurabot/ltm-memory ~/.dsh/plugins-data/aurabot/modules/
 
 实现细节和未实现的设计项见 `长期记忆方案评估与实现.md` 4.6.6。
 
-## 视频与本地媒体 MCP
-
-仓库里附带一套 16:9 讲解视频的生成流水线，以及三个本地 stdio MCP：
-
-- `mcp/image_server.py`：生成背景图、封面、带中文标签的示意图。
-- `mcp/video_server.py`：ffmpeg 探测、拼接、混音、烧字幕、抽帧。
-- `mcp/audio_server.py`：Edge 神经 TTS、批量合成、音频拼接。
-
-注册方法、工具清单和验证命令见 [mcp/README.md](mcp/README.md)；成片与逐帧流水线见
-[video/README.md](video/README.md)，视频介绍（含完整使用方法）在
-`video/output/视频介绍.md`。
 
 ## 验证
 
