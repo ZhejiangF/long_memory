@@ -13,11 +13,21 @@ DSH 的长期记忆插件。原话先进缓冲区，攒够一批像睡眠一样�
 | `package.json` | `dsh.bundle.patch` 指向补丁；`main` 指向 `dsh-plugin/src/index.js`；`files` 带上 `src/ltm` |
 | `dsh-plugin/cordis.patch.yml` | bundle 补丁：一条 `insert`，把 `ltm-memory` 行插进组合树 |
 | `dsh-plugin/src/index.js` | cordis 插件入口：`name` / `inject: ['tools']` / `apply(ctx, config)` |
+| `dsh-plugin/src/capture.js` | 从 `session/event` 提取要记的发言（真人输入 + 助手回复） |
 | `dsh-plugin/src/tools.js` | 七个 `ToolDefinition`，`parameters` 与 `output.schema` 都是 JSON Schema |
 | `dsh-plugin/src/bridge.js` | 长驻 `python -m ltm.service.bridge`，按行收发 JSON；自动挑 `python`/`python3` |
 | `src/ltm` | 记忆引擎本体（随包分发，不重复实现） |
 
 host-only：没有 `dsh.client`，不需要构建 client bundle，没有 npm 依赖。
+
+## 自动记住（默认开启）
+
+和 Python 库的 `ChatAgent.handle` 一样：插件监听 `session/event`，**每条真人发言和助手回复都会自动写进缓冲区**，不需要模型主动调用工具。
+
+- 只记真人输入（`source.kind === 'user'`）和助手回复；AGENTS.md、skill 目录、goal 续跑这类插件注入的上下文会跳过。
+- 同一句话在 120 秒内重复出现（例如模型又调了一次 `memory_remember`）只记一次。
+- 缓冲区攒到阈值（`consolidateEvery` / `napSentences`）后自动整理，整理时才更新性格。
+- 想关掉自动记：`autoCapture: false`；只想记用户不记助手：`captureAssistant: false`。
 
 ## 安装
 
@@ -73,6 +83,8 @@ python: 'C:/path/to/python.exe'
 |---|---|---|
 | `dbPath` | `<DSH_HOME>/ltm/memory.db` | 记忆体文件；`:memory:` 表示不落盘 |
 | `blank` | `true` | 空白记忆体：不预置任何人名，成员随第一次出现变成 `@名字` |
+| `autoCapture` | `true` | 监听会话事件，自动记住真人发言与助手回复 |
+| `captureAssistant` | `true` | 助手回复也记；只记用户就设 `false` |
 | `resetOnStart` | `false` | 启动时先清空旧记忆；换空白记忆体时用一次 |
 | `python` | 自动探测 | 跑桥的解释器 |
 | `pythonPath` | 包内 `src` | 加进 `PYTHONPATH`，让子进程找到 `ltm` |

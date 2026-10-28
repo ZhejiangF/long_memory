@@ -1,3 +1,14 @@
+# v0.4.0 — 插件与 Python 库行为对齐：自动记住每条对话
+
+之前插件只注册工具，记忆完全依赖模型主动调用 `memory_remember`；不调就一条都不存。这个版本接上 DSH 的 `session/event`，和 `ChatAgent.handle` 一样自动捕获：
+
+- 真人发言（`source.kind === 'user'`）与助手回复都写进缓冲区；
+- 插件注入的上下文（AGENTS.md、skill 目录、goal 续跑）跳过；
+- 同句话 120 秒内重复只记一次（自动抓取与手动 `memory_remember` 撞车时）；
+- 攒够阈值自动整理，整理时更新性格。
+
+配置：`autoCapture`（默认 true）、`captureAssistant`（默认 true）。工具保留，作为手动补充。
+
 # v0.3.0 — 性格真正参与记忆与回复
 
 此前 `personality` 只有门控阈值生效，`traits` 表一直是空的。这个版本补上性格更新与注入：
