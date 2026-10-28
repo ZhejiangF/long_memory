@@ -30,7 +30,9 @@ print(result.reply)
 
 ## 作为 DSH 插件
 
-仓库根目录就是 npm 包：`package.json` 的 `dsh.bundle.patch` 指向 `dsh-plugin/cordis.patch.yml`，`files` 带上 `src/ltm`。装上后模型多出这些工具：`memory_recall`、`memory_remember`、`memory_sleep`、`memory_save`、`memory_load`、`memory_reset`、`memory_status`。
+仓库根目录就是 npm 包：`package.json` 的 `dsh.bundle.patch` 指向 `dsh-plugin/cordis.patch.yml`，`files` 带上 `src/ltm`。
+
+装上后**每条真人发言和助手回复都会自动进记忆**（监听 DSH 的 `session/event`，和库里的 `ChatAgent.handle` 一致），不需要模型主动调用工具；同时模型也可以用这些工具手动操作：`memory_recall`、`memory_remember`、`memory_sleep`、`memory_save`、`memory_load`、`memory_reset`、`memory_status`。
 
 ```bash
 dsh plugin --profile web add "git+https://github.com/ZhejiangF/long_memory.git"
